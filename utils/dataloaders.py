@@ -7,6 +7,7 @@ import glob
 import hashlib
 import json
 import math
+from multiprocessing.connection import wait
 import os
 import random
 import shutil
@@ -25,6 +26,7 @@ import yaml
 from PIL import ExifTags, Image, ImageOps
 from torch.utils.data import DataLoader, Dataset, dataloader, distributed
 from tqdm import tqdm
+from stream.OpencvRingBuffer import OpencvRingBuffer
 
 from utils.augmentations import Albumentations, augment_hsv, copy_paste, letterbox, mixup, random_perspective
 from utils.general import (DATASETS_DIR, LOGGER, NUM_THREADS, check_dataset, check_requirements, check_yaml, clean_str,
@@ -303,6 +305,7 @@ class LoadStreams:
         self.img_size = img_size
         self.stride = stride
 
+        from stream.OpencvRingBuffer import OpencvRingBuffer
         if os.path.isfile(sources):
             with open(sources) as f:
                 sources = [x.strip() for x in f.read().strip().splitlines() if len(x.strip())]
@@ -322,14 +325,19 @@ class LoadStreams:
                 s = pafy.new(s).getbest(preftype="mp4").url  # YouTube URL
             s = eval(s) if s.isnumeric() else s  # i.e. s = '0' local webcam
             cap = cv2.VideoCapture(s)
+            self.buff = OpencvRingBuffer(cap)
+            self.buff.startcap()
             assert cap.isOpened(), f'{st}Failed to open {s}'
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            self.width = w
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            self.height = h
             fps = cap.get(cv2.CAP_PROP_FPS)  # warning: may return 0 or nan
             self.frames[i] = max(int(cap.get(cv2.CAP_PROP_FRAME_COUNT)), 0) or float('inf')  # infinite stream fallback
             self.fps[i] = max((fps if math.isfinite(fps) else 0) % 100, 0) or 30  # 30 FPS fallback
 
-            _, self.imgs[i] = cap.read()  # guarantee first frame
+            # _, self.imgs[i] = cap.read()  # guarantee first frame
+            _, self.imgs[i] = self.buff.getnew()
             self.threads[i] = Thread(target=self.update, args=([i, cap, s]), daemon=True)
             LOGGER.info(f"{st} Success ({self.frames[i]} frames {w}x{h} at {self.fps[i]:.2f} FPS)")
             self.threads[i].start()
@@ -347,15 +355,18 @@ class LoadStreams:
         while cap.isOpened() and n < f:
             n += 1
             # _, self.imgs[index] = cap.read()
-            cap.grab()
+            # cap.grab()
             if n % read == 0:
-                success, im = cap.retrieve()
+                # success, im = cap.retrieve()
+                success, im = self.buff.getnew()
                 if success:
                     self.imgs[i] = im
                 else:
                     LOGGER.warning('WARNING: Video stream unresponsive, please check your IP camera connection.')
                     self.imgs[i] = np.zeros_like(self.imgs[i])
                     cap.open(stream)  # re-open stream if signal was lost
+                    self.buff = OpencvRingBuffer(cap)
+                    self.buff.startcap()
             time.sleep(1 / self.fps[i])  # wait time
 
     def __iter__(self):
@@ -366,6 +377,7 @@ class LoadStreams:
         self.count += 1
         if not all(x.is_alive() for x in self.threads) or cv2.waitKey(1) == ord('q'):  # q to quit
             cv2.destroyAllWindows()
+            self.buff.stopcap()
             raise StopIteration
 
         # Letterbox

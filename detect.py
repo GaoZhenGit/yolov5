@@ -98,6 +98,8 @@ def run(
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt)
+        from stream.RtmpPush import Rtmp
+        rtmp = Rtmp('rtmp://18.166.154.193/live/livestream', dataset.fps[0], dataset.width, dataset.height)
         bs = len(dataset)  # batch_size
     else:
         dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt)
@@ -174,6 +176,7 @@ def run(
             im0 = annotator.result()
             if view_img:
                 cv2.imshow(str(p), im0)
+                rtmp.push(im0)
                 cv2.waitKey(1)  # 1 millisecond
 
             # Save results (image with detections)
