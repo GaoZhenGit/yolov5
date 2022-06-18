@@ -74,6 +74,7 @@ def run(
         hide_conf=False,  # hide confidences
         half=False,  # use FP16 half-precision inference
         dnn=False,  # use OpenCV DNN for ONNX inference
+        push=''
 ):
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
@@ -98,8 +99,9 @@ def run(
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt)
-        from stream.RtmpPush import Rtmp
-        rtmp = Rtmp('rtmp://18.166.154.193/live/livestream', dataset.fps[0], dataset.width, dataset.height)
+        if push is not None and push.startswith('rtmp:'):
+            from stream.RtmpPush import RtmpPush
+            rtmp = RtmpPush(push, dataset.fps[0], dataset.width, dataset.height)
         bs = len(dataset)  # batch_size
     else:
         dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt)
@@ -176,7 +178,8 @@ def run(
             im0 = annotator.result()
             if view_img:
                 cv2.imshow(str(p), im0)
-                rtmp.push(im0)
+                if rtmp is not None:
+                    rtmp.push(im0)
                 cv2.waitKey(1)  # 1 millisecond
 
             # Save results (image with detections)
@@ -239,6 +242,7 @@ def parse_opt():
     parser.add_argument('--hide-conf', default=False, action='store_true', help='hide confidences')
     parser.add_argument('--half', action='store_true', help='use FP16 half-precision inference')
     parser.add_argument('--dnn', action='store_true', help='use OpenCV DNN for ONNX inference')
+    parser.add_argument('--push',default=None)
     opt = parser.parse_args()
     opt.imgsz *= 2 if len(opt.imgsz) == 1 else 1  # expand
     print_args(vars(opt))
