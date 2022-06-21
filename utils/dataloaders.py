@@ -300,10 +300,11 @@ class LoadWebcam:  # for inference
 
 class LoadStreams:
     # YOLOv5 streamloader, i.e. `python detect.py --source 'rtsp://example.com/media.mp4'  # RTSP, RTMP, HTTP streams`
-    def __init__(self, sources='streams.txt', img_size=640, stride=32, auto=True):
+    def __init__(self, sources='streams.txt', img_size=640, stride=32, auto=True, ofps=15):
         self.mode = 'stream'
         self.img_size = img_size
         self.stride = stride
+        self.ofps = ofps
 
         from stream.OpencvRingBuffer import OpencvRingBuffer
         if os.path.isfile(sources):
@@ -325,7 +326,7 @@ class LoadStreams:
                 s = pafy.new(s).getbest(preftype="mp4").url  # YouTube URL
             s = eval(s) if s.isnumeric() else s  # i.e. s = '0' local webcam
             cap = cv2.VideoCapture(s)
-            self.buff = OpencvRingBuffer(cap)
+            self.buff = OpencvRingBuffer(cap=cap,proximate_output_fps=ofps)
             self.buff.startcap()
             assert cap.isOpened(), f'{st}Failed to open {s}'
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -365,7 +366,7 @@ class LoadStreams:
                     LOGGER.warning('WARNING: Video stream unresponsive, please check your IP camera connection.')
                     self.imgs[i] = np.zeros_like(self.imgs[i])
                     cap.open(stream)  # re-open stream if signal was lost
-                    self.buff = OpencvRingBuffer(cap)
+                    self.buff = OpencvRingBuffer(cap=cap,proximate_output_fps=self.ofps)
                     self.buff.startcap()
             time.sleep(1 / self.fps[i])  # wait time
 

@@ -44,6 +44,7 @@ from utils.general import (LOGGER, check_file, check_img_size, check_imshow, che
                            increment_path, non_max_suppression, print_args, scale_coords, strip_optimizer, xyxy2xywh)
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, time_sync
+import time
 
 
 @torch.no_grad()
@@ -74,7 +75,8 @@ def run(
         hide_conf=False,  # hide confidences
         half=False,  # use FP16 half-precision inference
         dnn=False,  # use OpenCV DNN for ONNX inference
-        push=''
+        push='',
+        ofps=10,
 ):
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
@@ -98,10 +100,10 @@ def run(
     if webcam:
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt)
+        dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt, ofps=ofps)
         if push is not None and push.startswith('rtmp:'):
             from stream.RtmpPush import RtmpPush
-            rtmp = RtmpPush(push, dataset.fps[0], dataset.width, dataset.height)
+            rtmp = RtmpPush(push, ofps, dataset.width, dataset.height)
         bs = len(dataset)  # batch_size
     else:
         dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt)
@@ -111,8 +113,10 @@ def run(
     # Run inference
     model.warmup(imgsz=(1 if pt else bs, 3, *imgsz))  # warmup
     dt, seen = [0.0, 0.0, 0.0], 0
+    real_fps = 0
     for path, im, im0s, vid_cap, s in dataset:
         t1 = time_sync()
+        fps_t = time.time()
         im = torch.from_numpy(im).to(device)
         im = im.half() if model.fp16 else im.float()  # uint8 to fp16/32
         im /= 255  # 0 - 255 to 0.0 - 1.0
@@ -177,6 +181,11 @@ def run(
             # Stream results
             im0 = annotator.result()
             if view_img:
+                cv2.putText(im0, 'fps:%.1f' % real_fps, 
+                    (15,30), fontFace=cv2.FONT_HERSHEY_COMPLEX, color=(0,0,255), fontScale=1, thickness=2)
+                date = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                cv2.putText(im0, date, 
+                    (15,60), fontFace=cv2.FONT_HERSHEY_COMPLEX, color=(0,0,255), fontScale=1, thickness=2)
                 cv2.imshow(str(p), im0)
                 if rtmp is not None:
                     rtmp.push(im0)
@@ -200,7 +209,7 @@ def run(
                         save_path = str(Path(save_path).with_suffix('.mp4'))  # force *.mp4 suffix on results videos
                         vid_writer[i] = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                     vid_writer[i].write(im0)
-
+        real_fps = 1.0/(time.time() - fps_t)
         # Print time (inference-only)
         LOGGER.info(f'{s}Done. ({t3 - t2:.3f}s)')
 
@@ -243,6 +252,7 @@ def parse_opt():
     parser.add_argument('--half', action='store_true', help='use FP16 half-precision inference')
     parser.add_argument('--dnn', action='store_true', help='use OpenCV DNN for ONNX inference')
     parser.add_argument('--push',default=None)
+    parser.add_argument('--ofps',default=15,type=int)
     opt = parser.parse_args()
     opt.imgsz *= 2 if len(opt.imgsz) == 1 else 1  # expand
     print_args(vars(opt))
