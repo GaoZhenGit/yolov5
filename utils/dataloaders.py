@@ -376,7 +376,9 @@ class LoadStreams:
 
     def __next__(self):
         self.count += 1
-        if not all(x.is_alive() for x in self.threads) or cv2.waitKey(1) == ord('q'):  # q to quit
+        from stream import driver
+        signal_get = driver.needSubProcessStop()
+        if not all(x.is_alive() for x in self.threads) or cv2.waitKey(1) == ord('q') or signal_get:  # q to quit
             cv2.destroyAllWindows()
             self.buff.stopcap()
             raise StopIteration

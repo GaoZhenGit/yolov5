@@ -219,11 +219,13 @@ def run(
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
         LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}{s}")
+        from stream import driver
+        driver.setSavePath(save_path)
     if update:
         strip_optimizer(weights)  # update model (to fix SourceChangeWarning)
 
 
-def parse_opt():
+def parse_opt(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'yolov5s.pt', help='model path(s)')
     parser.add_argument('--source', type=str, default=ROOT / 'data/images', help='file/dir/URL/glob, 0 for webcam')
@@ -253,7 +255,7 @@ def parse_opt():
     parser.add_argument('--dnn', action='store_true', help='use OpenCV DNN for ONNX inference')
     parser.add_argument('--push',default=None)
     parser.add_argument('--ofps',default=15,type=int)
-    opt = parser.parse_args()
+    opt = parser.parse_args(args=args)
     opt.imgsz *= 2 if len(opt.imgsz) == 1 else 1  # expand
     print_args(vars(opt))
     return opt
@@ -263,6 +265,12 @@ def main(opt):
     check_requirements(exclude=('tensorboard', 'thop'))
     run(**vars(opt))
 
+def run_from_other_process(*args):
+    from stream import driver
+    driver.multiprocess_queue = args[-1]
+    args = args[:-1]
+    opt = parse_opt(args)
+    main(opt)
 
 if __name__ == "__main__":
     opt = parse_opt()
