@@ -63,7 +63,10 @@ class Driver:
         printColor('yolo process stop!')
 
     def getSavePath(self):
-        return self.q.get(False)
+        path = self.q.get(False)
+        if not path.endswith('.mp4'):
+            path = path + '.mp4'
+        return path
 
 def printColor(text:str):
     print('\033[32m' + text + '\033[0m')
