@@ -112,7 +112,7 @@ def run(
 
     # Run inference
     model.warmup(imgsz=(1 if pt else bs, 3, *imgsz))  # warmup
-    dt, seen = [0.0, 0.0, 0.0], 0
+    seen, windows, dt = 0, [], [0.0, 0.0, 0.0]
     real_fps = 0
     for path, im, im0s, vid_cap, s in dataset:
         t1 = time_sync()
@@ -186,6 +186,10 @@ def run(
                 date = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                 cv2.putText(im0, date, 
                     (15,60), fontFace=cv2.FONT_HERSHEY_COMPLEX, color=(0,0,255), fontScale=1, thickness=2)
+                if p not in windows:
+                    windows.append(p)
+                    cv2.namedWindow(str(p), cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)  # allow window resize (Linux)
+                    cv2.resizeWindow(str(p), im0.shape[1], im0.shape[0])
                 cv2.imshow(str(p), im0)
                 if rtmp is not None:
                     rtmp.push(im0)
