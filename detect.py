@@ -220,7 +220,7 @@ def run(
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
         LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}{s}")
         from stream import driver
-        driver.setSavePath(save_path)
+        driver.setSavePath((save_path,str(save_dir / 'labels')))
     if update:
         strip_optimizer(weights)  # update model (to fix SourceChangeWarning)
 
