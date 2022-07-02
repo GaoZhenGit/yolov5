@@ -181,6 +181,7 @@ def run(
             # Stream results
             im0 = annotator.result()
             if view_img:
+                window_name = str(p).replace('\\','/')
                 cv2.putText(im0, 'fps:%.1f' % real_fps, 
                     (15,30), fontFace=cv2.FONT_HERSHEY_COMPLEX, color=(0,0,255), fontScale=1, thickness=2)
                 date = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -188,9 +189,10 @@ def run(
                     (15,60), fontFace=cv2.FONT_HERSHEY_COMPLEX, color=(0,0,255), fontScale=1, thickness=2)
                 if p not in windows:
                     windows.append(p)
-                    cv2.namedWindow(str(p), cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)  # allow window resize (Linux)
-                    cv2.resizeWindow(str(p), im0.shape[1], im0.shape[0])
-                cv2.imshow(str(p), im0)
+                    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)  # allow window resize (Linux)
+                    cv2.resizeWindow(window_name, im0.shape[1], im0.shape[0])
+                cv2.imshow(window_name, im0)
+                LOGGER.info('window name:' + window_name)
                 if rtmp is not None:
                     rtmp.push(im0)
                 cv2.waitKey(1)  # 1 millisecond
