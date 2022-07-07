@@ -369,6 +369,7 @@ class LoadStreams:
                     LOGGER.warning('WARNING: Video stream unresponsive, please check your IP camera connection.')
                     self.imgs[i] = np.zeros_like(self.imgs[i])
                     cap.open(stream)  # re-open stream if signal was lost
+                    self.buff.stopcap()
                     self.buff = OpencvRingBuffer(cap=cap,proximate_output_fps=self.ofps)
                     self.buff.startcap()
             time.sleep(1 / self.fps[i])  # wait time
