@@ -76,10 +76,14 @@ class OpencvRingBuffer:
         ret, img = self.__try_get_frame(0.5)
         if ret:
             return ret, img
+        if self.stopflag!=0:
+            return False, None
         LOGGER.info('--------------cv buffer empty--------------')
         ret, img = self.__try_get_frame(2)
         if ret:
             return ret, img
+        if self.stopflag!=0:
+            return False, None
         LOGGER.info('--------------cv buffer empty 2 second--------------')
         ret, img = self.__try_get_frame(2)
         if ret:
