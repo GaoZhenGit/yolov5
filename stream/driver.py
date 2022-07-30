@@ -118,7 +118,7 @@ class Driver:
             "--img", "1280",
             "--source", src,
             "--push", des,
-            "--ofps", "14",
+            "--ofps", "13",
             "--line-thickness","1",
             "--name", "rtmp",
             "--agnostic-nms",
